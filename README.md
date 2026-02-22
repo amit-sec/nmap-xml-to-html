@@ -110,7 +110,7 @@ Do not scan networks without proper permission.
 
 This project was developed by Amit Prajapati with assistance from Claude AI (Anthropic) for code structuring, optimization, and UI refinement.
 
-All architecture decisions, feature logic, and security considerations were manually reviewed and validated.
+Make sure to read code before executing or atlest get it reviewed by AI
 
 ---
 
