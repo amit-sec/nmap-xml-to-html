@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Nmap Report — nmap_example.xml</title>
+<!-- Coded by Amit Prajapati & Claude AI -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;
+  --text:#c9d1d9;--dim:#8b949e;
+  --accent:#58a6ff;--green:#3fb950;--red:#f85149;
+  --orange:#d29922;--purple:#bc8cff;--cyan:#39c5cf;
+  --radius:10px;--shadow:0 4px 24px rgba(0,0,0,.5)
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+     background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+/* Layout */
+.wrapper{display:flex;min-height:100vh}
+.sidebar{width:230px;min-width:230px;background:var(--bg2);border-right:1px solid var(--border);
+         position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.slogo{padding:18px 16px 12px;font-size:17px;font-weight:700;color:var(--accent);
+       border-bottom:1px solid var(--border)}
+.slogo small{display:block;font-size:10px;color:var(--dim);font-weight:400;margin-top:2px}
+.ssec{padding:10px 12px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.nav-host{display:block;padding:7px 16px;color:var(--text);text-decoration:none;
+          border-left:3px solid transparent;font-size:12px;line-height:1.4;transition:.15s}
+.nav-host:hover{background:var(--bg3);border-left-color:var(--accent)}
+.nav-host.down{opacity:.45}
+.nav-open{float:right;background:var(--bg3);border-radius:10px;padding:0 6px;
+          font-size:10px;color:var(--green)}
+.main{flex:1;padding:28px 32px;overflow-x:auto}
+/* Report header */
+.rhead{background:linear-gradient(135deg,var(--bg2),#1c2333);border:1px solid var(--border);
+       border-radius:var(--radius);padding:26px 30px;margin-bottom:22px;box-shadow:var(--shadow)}
+.rtitle{font-size:23px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.rsub{color:var(--dim);font-size:12px;margin-bottom:14px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px}
+.mc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.mclbl{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:3px}
+.mcval{font-size:12px;word-break:break-all}
+/* Stat cards */
+.srow{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:22px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 18px;text-align:center;box-shadow:var(--shadow);transition:transform .15s}
+.sc:hover{transform:translateY(-2px)}
+.scn{font-size:34px;font-weight:800;line-height:1}
+.scl{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-top:4px}
+.sc.blue .scn{color:var(--accent)} .sc.green .scn{color:var(--green)}
+.sc.red  .scn{color:var(--red)}   .sc.orange .scn{color:var(--orange)}
+.sc.purple .scn{color:var(--purple)} .sc.cyan .scn{color:var(--cyan)}
+/* Charts */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+@media(max-width:800px){.cgrid{grid-template-columns:1fr}.sidebar{display:none}}
+.cc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.ctitle{font-size:13px;font-weight:600;margin-bottom:11px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bar-lbl{width:80px;font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;
+         white-space:nowrap;flex-shrink:0}
+.bar-track{flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan));
+          border-radius:5px;transition:width .4s}
+.bar-fill.pf{background:linear-gradient(90deg,var(--purple),#ff79c6)}
+.bar-cnt{font-size:11px;color:var(--dim);width:26px;text-align:right}
+/* Section card */
+.section-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+              margin-bottom:22px;box-shadow:var(--shadow)}
+.sec-title{font-size:15px;font-weight:700;padding:14px 22px;
+           border-bottom:1px solid var(--border);color:var(--text)}
+/* Filter bar */
+.fbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.fbar input{flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);
+            color:var(--text);border-radius:8px;padding:8px 13px;font-size:13px;outline:none}
+.fbar input:focus{border-color:var(--accent)}
+.fbtn{background:var(--bg3);border:1px solid var(--border);color:var(--dim);border-radius:8px;
+      padding:7px 13px;font-size:12px;cursor:pointer;transition:.15s}
+.fbtn:hover,.fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Legend */
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:4px 0 12px;font-size:11px;color:var(--dim)}
+.li{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:2px}
+.ld-r{background:rgba(248,81,73,.5);border:1px solid var(--red)}
+.ld-i{background:rgba(63,185,80,.3);border:1px solid var(--green)}
+/* Host card */
+.host-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+           margin-bottom:20px;box-shadow:var(--shadow);overflow:hidden}
+.hdr{background:linear-gradient(135deg,var(--bg3),#1a2030);padding:15px 20px;
+     display:flex;justify-content:space-between;align-items:flex-start;
+     flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border)}
+.htitle h2{font-size:18px;font-weight:700;color:var(--accent);display:inline;margin-right:8px}
+.hn{font-size:12px;color:var(--dim)}
+.hbadge{display:inline-block;padding:2px 9px;border-radius:12px;
+        font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-left:7px}
+.hbadge.host-up{background:rgba(63,185,80,.15);color:var(--green);border:1px solid var(--green)}
+.hbadge.host-down{background:rgba(248,81,73,.15);color:var(--red);border:1px solid var(--red)}
+.hmeta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.mi{font-size:11px;color:var(--dim)}
+.ml{color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.6px;margin-right:4px}
+.acc{color:var(--orange);font-size:10px}
+.counts{display:flex;gap:7px}
+.cnt{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.open-cnt{background:rgba(63,185,80,.15);color:var(--green)}
+.filt-cnt{background:rgba(210,153,34,.15);color:var(--orange)}
+.close-cnt{background:rgba(139,148,158,.1);color:var(--dim)}
+/* Pills */
+.pills{padding:11px 20px;display:flex;flex-wrap:wrap;gap:5px}
+.ppill{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.25);
+       color:var(--accent);border-radius:6px;padding:2px 9px;
+       font-size:11px;font-family:monospace;cursor:default;transition:.15s}
+.ppill:hover{background:rgba(88,166,255,.2)}
+.ppill.more{background:var(--bg3);color:var(--dim);border-color:var(--border)}
+.no-open{color:var(--dim);font-size:12px;font-style:italic}
+/* Port table */
+.tbl-wrap{overflow-x:auto;padding:0 0 4px}
+.ptbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.ptbl thead tr{background:var(--bg3)}
+.ptbl th{padding:9px 13px;text-align:left;font-size:10px;text-transform:uppercase;
+         letter-spacing:.8px;color:var(--dim);border-bottom:1px solid var(--border);white-space:nowrap}
+.ptbl td{padding:8px 13px;border-bottom:1px solid rgba(48,54,61,.5);vertical-align:top}
+.ptbl tr:last-child td{border-bottom:none}
+.ptbl tr:hover td{background:rgba(88,166,255,.04)}
+.ptbl tr.row-risky td{background:rgba(248,81,73,.04)}
+.ptbl tr.row-interesting td{background:rgba(63,185,80,.03)}
+.cpe-cell,.mono{font-family:monospace;font-size:11px;color:var(--dim)}
+.nodata{text-align:center;color:var(--dim);padding:18px;font-style:italic}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;
+       font-size:11px;font-weight:600}
+.open-badge{background:rgba(63,185,80,.15);color:var(--green)}
+.closed-badge{background:rgba(139,148,158,.1);color:var(--dim)}
+.filtered-badge{background:rgba(210,153,34,.15);color:var(--orange)}
+.unknown-badge{background:var(--bg3);color:var(--dim)}
+/* Scripts */
+.hsc-section{padding:11px 20px;border-top:1px solid var(--border)}
+.hsc-section h4{font-size:11px;color:var(--purple);text-transform:uppercase;
+                letter-spacing:.6px;margin-bottom:6px}
+.sc-wrap{margin:5px 0}
+.sc-id{background:rgba(188,140,255,.15);color:var(--purple);border-radius:4px;
+       padding:1px 7px;font-size:11px;font-family:monospace}
+.sc-out{background:var(--bg);border:1px solid var(--border);border-radius:6px;
+        padding:7px 11px;font-size:11px;color:var(--dim);white-space:pre-wrap;
+        word-break:break-all;margin-top:3px;max-height:140px;overflow-y:auto}
+/* Unique ports */
+.uports-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 22px}
+.uport-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:13px}
+.uport-label{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:6px}
+.uport-val{font-size:12px;line-height:1.8;word-break:break-all}
+/* Service matrix */
+.svc-ip{display:inline-block;background:rgba(88,166,255,.1);color:var(--accent);
+        border:1px solid rgba(88,166,255,.2);border-radius:4px;
+        padding:1px 7px;font-size:11px;font-family:monospace;margin:2px}
+.svc-hosts{max-width:500px}
+/* Footer */
+.footer{text-align:center;padding:20px;color:var(--dim);font-size:11px;
+        border-top:1px solid var(--border);margin-top:26px}
+.dim{color:var(--dim)}
+/* Export bar */
+.export-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+            padding:12px 18px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.export-bar span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-right:4px}
+.ebtn{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);
+      border:1px solid var(--border);color:var(--text);border-radius:8px;
+      padding:7px 14px;font-size:12px;cursor:pointer;transition:.15s;font-weight:500}
+.ebtn:hover{border-color:var(--accent);color:var(--accent)}
+.ebtn.green-btn:hover{border-color:var(--green);color:var(--green)}
+.ebtn.purple-btn:hover{border-color:var(--purple);color:var(--purple)}
+/* Toast */
+.toast{position:fixed;bottom:28px;right:28px;background:#1f2937;color:#f9fafb;
+       border:1px solid var(--border);border-radius:10px;padding:12px 20px;
+       font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+       opacity:0;transform:translateY(10px);transition:.3s;z-index:9999;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+/* Credit */
+.credit{font-size:11px;color:var(--dim);margin-top:4px}
+.credit strong{color:var(--accent)}
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<aside class="sidebar">
+  <div class="slogo">🔍 Nmap Report<small>Generated 2026-02-22 16:58:55</small>
+    <div class="credit">by <strong>Amit Prajapati</strong> &amp; Claude AI</div>
+  </div>
+  <div class="ssec">Hosts (8)</div>
+  <a href="#host-0" class="nav-host up">64.13.134.48<span class="nav-open">3</span></a>
+<a href="#host-1" class="nav-host up">66.35.250.168<br><small>freshmeat.net</small><span class="nav-open">1</span></a>
+<a href="#host-2" class="nav-host up">66.35.250.203<br><small>sourceforge.net</small><span class="nav-open">2</span></a>
+<a href="#host-3" class="nav-host up">72.14.207.99<br><small>eh-in-f99.google.com</small><span class="nav-open">2</span></a>
+<a href="#host-4" class="nav-host up">72.14.253.83<br><small>po-in-f83.google.com</small><span class="nav-open">2</span></a>
+<a href="#host-5" class="nav-host up">199.185.137.3<br><small>cvs.openbsd.org</small><span class="nav-open">5</span></a>
+<a href="#host-6" class="nav-host up">204.152.190.12<br><small>www.netbsd.org</small><span class="nav-open">8</span></a>
+<a href="#host-7" class="nav-host up">204.152.191.37<br><small>pub2.kernel.org</small><span class="nav-open">9</span></a>
+
+</aside>
+
+<main class="main">
+
+<!-- Export Bar -->
+<div class="export-bar">
+  <span>Export</span>
+  <button class="ebtn green-btn" onclick="exportCSV()" title="Download all open ports as CSV">
+    ⬇ CSV
+  </button>
+  <button class="ebtn purple-btn" onclick="copyIPPort()" title="Copy all open ports as IP:PORT to clipboard">
+    📋 Copy IP:PORT
+  </button>
+</div>
+
+<div class="rhead">
+  <div class="rtitle">Nmap Security Scan Report</div>
+  <div class="rsub">Source: <code>nmap_example.xml</code></div>
+  <div class="mgrid">
+    <div class="mc"><div class="mclbl">Scan Start</div><div class="mcval">Sun Jan 27 21:10:02 2008</div></div>
+    <div class="mc"><div class="mclbl">Scan End</div><div class="mcval">Sun Jan 27 21:52:49 2008</div></div>
+    <div class="mc"><div class="mclbl">Duration</div><div class="mcval">0s</div></div>
+    <div class="mc"><div class="mclbl">Scan Type</div><div class="mcval">syn/tcp</div></div>
+    <div class="mc"><div class="mclbl">Nmap Version</div><div class="mcval">4.53</div></div>
+    <div class="mc"><div class="mclbl">Files Loaded</div><div class="mcval">1</div></div>
+  </div>
+</div>
+
+<div class="srow">
+  <div class="sc blue">  <div class="scn">8</div>              <div class="scl">Total Hosts</div></div>
+  <div class="sc green"> <div class="scn">8</div>       <div class="scl">Hosts Up</div></div>
+  <div class="sc red">   <div class="scn">0</div>     <div class="scl">Hosts Down</div></div>
+  <div class="sc green"> <div class="scn">32</div>     <div class="scl">Open Ports</div></div>
+  <div class="sc orange"><div class="scn">2</div> <div class="scl">Filtered</div></div>
+  <div class="sc purple"><div class="scn">14</div>  <div class="scl">Services</div></div>
+</div>
+
+<div class="cgrid">
+  <div class="cc"><div class="ctitle">📊 Top Services</div><div class="bar-row"><span class="bar-lbl">http</span><div class="bar-track"><div class="bar-fill " style="width:100%"></div></div><span class="bar-cnt">11</span></div><div class="bar-row"><span class="bar-lbl">ssh</span><div class="bar-track"><div class="bar-fill " style="width:36%"></div></div><span class="bar-cnt">4</span></div><div class="bar-row"><span class="bar-lbl">domain</span><div class="bar-track"><div class="bar-fill " style="width:18%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">https</span><div class="bar-track"><div class="bar-fill " style="width:18%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">ftp</span><div class="bar-track"><div class="bar-fill " style="width:18%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">smtp</span><div class="bar-track"><div class="bar-fill " style="width:18%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">rsync</span><div class="bar-track"><div class="bar-fill " style="width:18%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">icb</span><div class="bar-track"><div class="bar-fill " style="width:9%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">supfilesrv</span><div class="bar-track"><div class="bar-fill " style="width:9%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">tcpwrapped</span><div class="bar-track"><div class="bar-fill " style="width:9%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">finger</span><div class="bar-track"><div class="bar-fill " style="width:9%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">smux</span><div class="bar-track"><div class="bar-fill " style="width:9%"></div></div><span class="bar-cnt">1</span></div></div>
+  <div class="cc"><div class="ctitle">🔌 Top Open Ports</div><div class="bar-row"><span class="bar-lbl">80</span><div class="bar-track"><div class="bar-fill pf" style="width:100%"></div></div><span class="bar-cnt">8</span></div><div class="bar-row"><span class="bar-lbl">443</span><div class="bar-track"><div class="bar-fill pf" style="width:62%"></div></div><span class="bar-cnt">5</span></div><div class="bar-row"><span class="bar-lbl">22</span><div class="bar-track"><div class="bar-fill pf" style="width:37%"></div></div><span class="bar-cnt">3</span></div><div class="bar-row"><span class="bar-lbl">53</span><div class="bar-track"><div class="bar-fill pf" style="width:25%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">21</span><div class="bar-track"><div class="bar-fill pf" style="width:25%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">25</span><div class="bar-track"><div class="bar-fill pf" style="width:25%"></div></div><span class="bar-cnt">2</span></div><div class="bar-row"><span class="bar-lbl">7326</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">871</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">874</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">1984</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">2022</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div><div class="bar-row"><span class="bar-lbl">79</span><div class="bar-track"><div class="bar-fill pf" style="width:12%"></div></div><span class="bar-cnt">1</span></div></div>
+</div>
+
+<div class="section-card"><h3 class="sec-title">📋 Scan Files</h3><div class="tbl-wrap"><table class="ptbl"><thead><tr><th>File</th><th>Start</th><th>End</th><th>Elapsed</th><th>Type</th><th>Ver</th><th>Command</th></tr></thead><tbody><tr><td class="mono">nmap_example.xml</td><td>Sun Jan 27 21:10:02 2008</td><td>Sun Jan 27 21:52:49 2008</td><td>0s</td><td>syn/tcp</td><td>4.53</td><td class="mono" style="font-size:10px;max-width:280px;word-break:break-all">nmap -A -v -oX sample-03.xml freshmeat.net sourceforge.net nmap.org kernel.org openbsd.org netbsd.org google.com gmail.com</td></tr></tbody></table></div></div>
+<div class="section-card"><h3 class="sec-title">🔌 Unique Open Ports</h3><div class="uports-grid"><div class="uport-box"><div class="uport-label">TCP <button class="ebtn" style="padding:2px 8px;font-size:10px;margin-left:6px" onclick="copyPorts('tcp-ports')" title="Copy TCP ports">📋 Copy</button></div><div class="uport-val mono" id="tcp-ports">21,22,25,53,79,80,199,443,871,873,874,1984,2022,5978,7000,7326</div></div><div class="uport-box"><div class="uport-label">UDP <button class="ebtn" style="padding:2px 8px;font-size:10px;margin-left:6px" onclick="copyPorts('udp-ports')" title="Copy UDP ports">📋 Copy</button></div><div class="uport-val mono" id="udp-ports">—</div></div></div></div>
+<div class="section-card"><h3 class="sec-title">🔧 Service Matrix <span class="dim">(top 30)</span></h3><div class="tbl-wrap"><table class="ptbl"><thead><tr><th>Service</th><th>Ports</th><th>Hosts</th><th>IPs Exposed</th></tr></thead><tbody><tr><td><strong>http</strong></td><td class="mono">80, 443</td><td><span class="cnt open-cnt">8</span></td><td class="svc-hosts"><span class="svc-ip">66.35.250.168</span><span class="svc-ip">66.35.250.203</span><span class="svc-ip">64.13.134.48</span><span class="svc-ip">204.152.191.37</span><span class="svc-ip">199.185.137.3</span><span class="svc-ip">204.152.190.12</span><span class="svc-ip">72.14.207.99</span><span class="svc-ip">72.14.253.83</span></td></tr><tr><td><strong>ssh</strong></td><td class="mono">22, 2022</td><td><span class="cnt open-cnt">3</span></td><td class="svc-hosts"><span class="svc-ip">64.13.134.48</span><span class="svc-ip">204.152.191.37</span><span class="svc-ip">204.152.190.12</span></td></tr><tr><td><strong>domain</strong></td><td class="mono">53</td><td><span class="cnt open-cnt">2</span></td><td class="svc-hosts"><span class="svc-ip">64.13.134.48</span><span class="svc-ip">199.185.137.3</span></td></tr><tr><td><strong>ftp</strong></td><td class="mono">21</td><td><span class="cnt open-cnt">2</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span><span class="svc-ip">199.185.137.3</span></td></tr><tr><td><strong>https</strong></td><td class="mono">443</td><td><span class="cnt open-cnt">2</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span><span class="svc-ip">72.14.253.83</span></td></tr><tr><td><strong>rsync</strong></td><td class="mono">873, 874</td><td><span class="cnt open-cnt">2</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span><span class="svc-ip">204.152.190.12</span></td></tr><tr><td><strong>smtp</strong></td><td class="mono">25</td><td><span class="cnt open-cnt">2</span></td><td class="svc-hosts"><span class="svc-ip">199.185.137.3</span><span class="svc-ip">204.152.190.12</span></td></tr><tr><td><strong>afs3-fileserver</strong></td><td class="mono">7000</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span></td></tr><tr><td><strong>finger</strong></td><td class="mono">79</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span></td></tr><tr><td><strong>icb</strong></td><td class="mono">7326</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">199.185.137.3</span></td></tr><tr><td><strong>ncd-diag-tcp</strong></td><td class="mono">5978</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span></td></tr><tr><td><strong>smux</strong></td><td class="mono">199</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.191.37</span></td></tr><tr><td><strong>supfilesrv</strong></td><td class="mono">871</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.190.12</span></td></tr><tr><td><strong>tcpwrapped</strong></td><td class="mono">1984</td><td><span class="cnt open-cnt">1</span></td><td class="svc-hosts"><span class="svc-ip">204.152.190.12</span></td></tr></tbody></table></div></div>
+
+<h2 style="font-size:17px;font-weight:700;margin:22px 0 12px;color:var(--text);
+            border-bottom:1px solid var(--border);padding-bottom:8px">🖥️ Host Details</h2>
+
+<div class="fbar">
+  <input type="text" id="hostSearch"
+         placeholder="🔍  Filter by IP, hostname, service, port, version..."
+         oninput="filterHosts()"/>
+  <button class="fbtn active" onclick="filterByStatus('all',this)">All</button>
+  <button class="fbtn"        onclick="filterByStatus('up',this)">Up</button>
+  <button class="fbtn"        onclick="filterByStatus('down',this)">Down</button>
+</div>
+
+<div class="legend">
+  <span class="li"><span class="ld ld-r"></span>High-risk port</span>
+  <span class="li"><span class="ld ld-i"></span>Common port</span>
+</div>
+
+<div id="host-container">
+  
+<div class="host-card" id="host-0" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>64.13.134.48</h2><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>Linux 2.6.17 - 2.6.21<span class=acc>(100%)</span></div><div class="mi"><span class="ml">Last Boot</span>Sun Dec 16 07:51:51 2007</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">3 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">3 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="OpenSSH 4.3 protocol 2.0">22/tcp ssh</span><span class="ppill" title="">53/tcp domain</span><span class="ppill" title="Apache httpd 2.2.2 (Fedora)">80/tcp http</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>22</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ssh</td><td>OpenSSH 4.3 protocol 2.0</td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>53</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>domain</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd 2.2.2 (Fedora)</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">Nmap - Free Security Scanner For Network Exploration &amp; Securit...</pre></div></td></tr><tr class="row-interesting"><td><strong>25</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>smtp</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>70</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>gopher</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>113</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>auth</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-1" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>66.35.250.168</h2><span class="hn">freshmeat.net</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>MicroTik RouterOS 2.9.46<span class=acc>(94%)</span></div><div class="mi"><span class="ml">Last Boot</span>Sun Jan 27 21:43:11 2008</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">1 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">1 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="Apache httpd 1.3.39 (Unix) PHP/4.4.7">80/tcp http</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd 1.3.39 (Unix) PHP/4.4.7</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">robots.txt</span><pre class="sc-out">User-Agent: * /img/ /redir/ </pre></div><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">freshmeat.net: Welcome to freshmeat.net</pre></div></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>https</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-2" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>66.35.250.203</h2><span class="hn">sourceforge.net</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>Linux 2.6.17 - 2.6.18<span class=acc>(94%)</span></div><div class="mi"><span class="ml">Last Boot</span>Sun Jan 27 21:43:16 2008</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">2 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">1 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="lighttpd 1.4.18">80/tcp http</span><span class="ppill" title="lighttpd 1.4.18">443/tcp http</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>lighttpd 1.4.18</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">Site doesn't have a title.</pre></div><div class="sc-wrap"><span class="sc-id">robots.txt</span><pre class="sc-out">User-agent: * 
+/forum /pm /search /softwaremap /top /tracker /users </pre></div></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>lighttpd 1.4.18</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">SSLv2</span><pre class="sc-out">server still supports SSLv2
+	SSL2_DES_192_EDE3_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_WITH_MD5
+	SSL2_RC4_64_WITH_MD5
+	SSL2_DES_64_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_EXPORT40_WITH_MD5
+</pre></div><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">Site doesn't have a title.</pre></div></td></tr><tr class=""><td><strong>563</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>snews</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-3" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>72.14.207.99</h2><span class="hn">eh-in-f99.google.com</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">Last Boot</span>Sun Jan 27 21:51:04 2008</div><div class="mi"><span class="ml">Hops</span>14</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">2 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">2 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="Google httpd 1.3 GFE">80/tcp http</span><span class="ppill" title="Google httpd 1.3 GFE">443/tcp http</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Google httpd 1.3 GFE</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">302 Moved</pre></div></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Google httpd 1.3 GFE</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">SSLv2</span><pre class="sc-out">server still supports SSLv2
+	SSL2_DES_192_EDE3_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_WITH_MD5
+	SSL2_DES_64_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_EXPORT40_WITH_MD5
+</pre></div><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">302 Moved</pre></div></td></tr><tr class=""><td><strong>113</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>auth</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>179</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>bgp</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-4" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>72.14.253.83</h2><span class="hn">po-in-f83.google.com</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">Last Boot</span>Sun Jan 27 21:51:04 2008</div><div class="mi"><span class="ml">Hops</span>14</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">2 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">2 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="Google httpd 1.3 GFE">80/tcp http</span><span class="ppill" title="">443/tcp https</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Google httpd 1.3 GFE</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">302 Moved</pre></div><div class="sc-wrap"><span class="sc-id">robots.txt</span><pre class="sc-out">/news?output=xhtml&amp; /search /groups /images 
+/catalogs /catalogues /news /nwshp /? /addurl/image? 
+/pagead/ /relpage/ /relcontent /sorry/ /imgres 
+/keyword/ /u/ /univ/ /cobrand /custom 
+/advanced_group_search /advanced_search /googlesite /preferences 
+/setprefs /swr /url /default /m? /m/search? /wml? 
+/wml/search? /xhtml? /xhtml/search? /xml? /imode? 
+/imode/search? /jsky? /jsky/search? /pda? /pda</pre></div></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>https</td><td></td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">302 Moved</pre></div><div class="sc-wrap"><span class="sc-id">SSLv2</span><pre class="sc-out">server still supports SSLv2
+	SSL2_DES_192_EDE3_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_WITH_MD5
+	SSL2_DES_64_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_EXPORT40_WITH_MD5
+</pre></div></td></tr><tr class=""><td><strong>113</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>auth</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>179</strong></td><td>TCP</td><td><span class="badge closed-badge">closed</span></td><td>bgp</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-5" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>199.185.137.3</h2><span class="hn">cvs.openbsd.org</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>Netcomm V300 VoIP gateway<span class=acc>(87%)</span></div><div class="mi"><span class="ml">Hops</span>21</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">5 open</span>
+        <span class="cnt filt-cnt">0 filtered</span>
+        <span class="cnt close-cnt">0 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="bsd-ftpd">21/tcp ftp</span><span class="ppill" title="OpenBSD spamd">25/tcp smtp</span><span class="ppill" title="ISC BIND 9.X">53/tcp domain</span><span class="ppill" title="Apache httpd">80/tcp http</span><span class="ppill" title="">7326/tcp icb</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-risky"><td><strong>21</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ftp</td><td>bsd-ftpd</td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>25</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>smtp</td><td>OpenBSD spamd</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">SMTP</span><pre class="sc-out">EHLO with errors or timeout.  Enable --script-trace to see what is happening.</pre></div></td></tr><tr class="row-interesting"><td><strong>53</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>domain</td><td>ISC BIND 9.X</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">zone-transfer</span><pre class="sc-out"> 
+openbsd.org.                  SOA     zeus.theos.com. root.theos.com.  
+openbsd.org.                  NS      ns.appli.se.                     
+openbsd.org.                  NS      ns	sigmasoft.com.                
+openbsd.org.                  NS      cvs.openbsd.org.                 
+openbsd.org.                  NS      citi.umich.edu.                  
+openbsd.org.                  NS      </pre></div></td></tr><tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">robots.txt</span><pre class="sc-out">/cgi-bin/ /faq/new/ 
+/donations.html </pre></div><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">OpenBSD</pre></div></td></tr><tr class=""><td><strong>7326</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>icb</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-6" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>204.152.190.12</h2><span class="hn">www.netbsd.org</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>Apple AirPort Extreme WAP (runs NetBSD)<span class=acc>(90%)</span></div><div class="mi"><span class="ml">Hops</span>14</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">8 open</span>
+        <span class="cnt filt-cnt">1 filtered</span>
+        <span class="cnt close-cnt">0 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="OpenSSH 4.4 NetBSD 20061114; protocol 2.0">22/tcp ssh</span><span class="ppill" title="Postfix smtpd">25/tcp smtp</span><span class="ppill" title="Apache httpd 2.0.61 (Unix) mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0">80/tcp http</span><span class="ppill" title="Apache httpd 2.0.61 mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0">443/tcp http</span><span class="ppill" title="">871/tcp supfilesrv</span><span class="ppill" title="protocol version 29">874/tcp rsync</span><span class="ppill" title="">1984/tcp tcpwrapped</span><span class="ppill" title="OpenSSH 4.4 NetBSD 20061114; protocol 2.0">2022/tcp ssh</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-interesting"><td><strong>22</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ssh</td><td>OpenSSH 4.4 NetBSD 20061114; protocol 2.0</td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>25</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>smtp</td><td>Postfix smtpd</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">SMTP</span><pre class="sc-out">HELP with errors or timeout.  Enable --script-trace to see what is happening.</pre></div></td></tr><tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd 2.0.61 (Unix) mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">The NetBSD Project</pre></div></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd 2.0.61 mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">400 Bad Request</pre></div><div class="sc-wrap"><span class="sc-id">SSLv2</span><pre class="sc-out">server still supports SSLv2
+	SSL2_DES_192_EDE3_CBC_WITH_MD5
+	SSL2_IDEA_128_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_WITH_MD5
+	SSL2_DES_64_CBC_WITH_MD5
+	SSL2_RC2_CBC_128_CBC_WITH_MD5
+	SSL2_RC4_128_EXPORT40_WITH_MD5
+</pre></div></td></tr><tr class=""><td><strong>871</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>supfilesrv</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>874</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>rsync</td><td>protocol version 29</td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>1984</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>tcpwrapped</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>2022</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ssh</td><td>OpenSSH 4.4 NetBSD 20061114; protocol 2.0</td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>1720</strong></td><td>TCP</td><td><span class="badge filtered-badge">filtered</span></td><td>H.323/Q.931</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="host-card" id="host-7" data-status="up">
+  <div class="hdr">
+    <div class="htitle">
+      <h2>204.152.191.37</h2><span class="hn">pub2.kernel.org</span><span class="hbadge host-up">UP</span>
+    </div>
+    <div class="hmeta">
+      <div class="mi"><span class="ml">OS</span>Linux 2.6.5 - 2.6.9<span class=acc>(91%)</span></div><div class="mi"><span class="ml">Last Boot</span>Wed Jan 23 05:19:43 2008</div><div class="mi"><span class="ml">Hops</span>13</div>
+      <div class="mi counts">
+        <span class="cnt open-cnt">9 open</span>
+        <span class="cnt filt-cnt">1 filtered</span>
+        <span class="cnt close-cnt">0 closed</span>
+      </div>
+    </div>
+  </div>
+  <div class="pills"><span class="ppill" title="vsftpd or WU-FTPD">21/tcp ftp</span><span class="ppill" title="OpenSSH 4.3 protocol 2.0">22/tcp ssh</span><span class="ppill" title="">79/tcp finger</span><span class="ppill" title="Apache httpd 2.2.2 (Fedora)">80/tcp http</span><span class="ppill" title="Linux SNMP multiplexer">199/tcp smux</span><span class="ppill" title="">443/tcp https</span><span class="ppill" title="protocol version 29">873/tcp rsync</span><span class="ppill" title="">5978/tcp ncd-diag-tcp</span><span class="ppill" title="">7000/tcp afs3-fileserver</span></div>
+  
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr><th>Port</th><th>Proto</th><th>State</th>
+            <th>Service</th><th>Product / Version</th><th>CPE</th><th>Scripts</th></tr>
+      </thead>
+      <tbody>
+        <tr class="row-risky"><td><strong>21</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ftp</td><td>vsftpd or WU-FTPD</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">Anonymous FTP</span><pre class="sc-out">FTP: Anonymous login allowed</pre></div></td></tr><tr class="row-interesting"><td><strong>22</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ssh</td><td>OpenSSH 4.3 protocol 2.0</td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>79</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>finger</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>80</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>http</td><td>Apache httpd 2.2.2 (Fedora)</td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">robots.txt</span><pre class="sc-out">
+/cgi-bin/ /pub/mirrors/ /pub/scm/ 
+/mirrors/process-registration.cgi /lsb/ /linuxeda/ /os.org/ /debian/ 
+/debian-cd/ /lanana/ /li18nux/ /freestandards/ 
+/filehub/ /diff/ /git/ /hg/ </pre></div><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">The Linux Kernel Archives</pre></div></td></tr><tr class=""><td><strong>199</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>smux</td><td>Linux SNMP multiplexer</td><td class="cpe-cell"></td><td></td></tr><tr class="row-interesting"><td><strong>443</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>https</td><td></td><td class="cpe-cell"></td><td><div class="sc-wrap"><span class="sc-id">HTML title</span><pre class="sc-out">The Linux Kernel Archives</pre></div></td></tr><tr class=""><td><strong>873</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>rsync</td><td>protocol version 29</td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>5978</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>ncd-diag-tcp</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>7000</strong></td><td>TCP</td><td><span class="badge open-badge">open</span></td><td>afs3-fileserver</td><td></td><td class="cpe-cell"></td><td></td></tr><tr class=""><td><strong>1720</strong></td><td>TCP</td><td><span class="badge filtered-badge">filtered</span></td><td>H.323/Q.931</td><td></td><td class="cpe-cell"></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="footer">
+  Generated by <strong>nmap2html.py</strong> &bull;
+  Coded by <strong>Amit Prajapati &amp; Claude AI</strong> &bull;
+  2026-02-22 16:58:55 &bull; Nmap 4.53 &bull;
+  
+</div>
+</main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Scan data for export -->
+<script>window.__SCAN_DATA__ = [{"ip": "64.13.134.48", "hostname": "", "port": 22, "protocol": "tcp", "state": "open", "service": "ssh", "product": "OpenSSH", "version": "4.3", "extrainfo": "protocol 2.0", "cpe": "", "os": "Linux 2.6.17 - 2.6.21", "mac": "", "vendor": ""}, {"ip": "64.13.134.48", "hostname": "", "port": 53, "protocol": "tcp", "state": "open", "service": "domain", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.17 - 2.6.21", "mac": "", "vendor": ""}, {"ip": "64.13.134.48", "hostname": "", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "2.2.2", "extrainfo": "(Fedora)", "cpe": "", "os": "Linux 2.6.17 - 2.6.21", "mac": "", "vendor": ""}, {"ip": "66.35.250.168", "hostname": "freshmeat.net", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "1.3.39", "extrainfo": "(Unix) PHP/4.4.7", "cpe": "", "os": "MicroTik RouterOS 2.9.46", "mac": "", "vendor": ""}, {"ip": "66.35.250.203", "hostname": "sourceforge.net", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "lighttpd", "version": "1.4.18", "extrainfo": "", "cpe": "", "os": "Linux 2.6.17 - 2.6.18", "mac": "", "vendor": ""}, {"ip": "66.35.250.203", "hostname": "sourceforge.net", "port": 443, "protocol": "tcp", "state": "open", "service": "http", "product": "lighttpd", "version": "1.4.18", "extrainfo": "", "cpe": "", "os": "Linux 2.6.17 - 2.6.18", "mac": "", "vendor": ""}, {"ip": "72.14.207.99", "hostname": "eh-in-f99.google.com", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Google httpd", "version": "1.3", "extrainfo": "GFE", "cpe": "", "os": "", "mac": "", "vendor": ""}, {"ip": "72.14.207.99", "hostname": "eh-in-f99.google.com", "port": 443, "protocol": "tcp", "state": "open", "service": "http", "product": "Google httpd", "version": "1.3", "extrainfo": "GFE", "cpe": "", "os": "", "mac": "", "vendor": ""}, {"ip": "72.14.253.83", "hostname": "po-in-f83.google.com", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Google httpd", "version": "1.3", "extrainfo": "GFE", "cpe": "", "os": "", "mac": "", "vendor": ""}, {"ip": "72.14.253.83", "hostname": "po-in-f83.google.com", "port": 443, "protocol": "tcp", "state": "open", "service": "https", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "", "mac": "", "vendor": ""}, {"ip": "199.185.137.3", "hostname": "cvs.openbsd.org", "port": 21, "protocol": "tcp", "state": "open", "service": "ftp", "product": "bsd-ftpd", "version": "", "extrainfo": "", "cpe": "", "os": "Netcomm V300 VoIP gateway", "mac": "", "vendor": ""}, {"ip": "199.185.137.3", "hostname": "cvs.openbsd.org", "port": 25, "protocol": "tcp", "state": "open", "service": "smtp", "product": "OpenBSD spamd", "version": "", "extrainfo": "", "cpe": "", "os": "Netcomm V300 VoIP gateway", "mac": "", "vendor": ""}, {"ip": "199.185.137.3", "hostname": "cvs.openbsd.org", "port": 53, "protocol": "tcp", "state": "open", "service": "domain", "product": "ISC BIND", "version": "9.X", "extrainfo": "", "cpe": "", "os": "Netcomm V300 VoIP gateway", "mac": "", "vendor": ""}, {"ip": "199.185.137.3", "hostname": "cvs.openbsd.org", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "", "extrainfo": "", "cpe": "", "os": "Netcomm V300 VoIP gateway", "mac": "", "vendor": ""}, {"ip": "199.185.137.3", "hostname": "cvs.openbsd.org", "port": 7326, "protocol": "tcp", "state": "open", "service": "icb", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Netcomm V300 VoIP gateway", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 22, "protocol": "tcp", "state": "open", "service": "ssh", "product": "OpenSSH", "version": "4.4", "extrainfo": "NetBSD 20061114; protocol 2.0", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 25, "protocol": "tcp", "state": "open", "service": "smtp", "product": "Postfix smtpd", "version": "", "extrainfo": "", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "2.0.61", "extrainfo": "(Unix) mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 443, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "2.0.61", "extrainfo": "mod_ssl/2.0.61  DAV/2 mod_fastcgi/2.4.2 mod_apreq2-20051231/2.6.0", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 871, "protocol": "tcp", "state": "open", "service": "supfilesrv", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 874, "protocol": "tcp", "state": "open", "service": "rsync", "product": "", "version": "", "extrainfo": "protocol version 29", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 1984, "protocol": "tcp", "state": "open", "service": "tcpwrapped", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.190.12", "hostname": "www.netbsd.org", "port": 2022, "protocol": "tcp", "state": "open", "service": "ssh", "product": "OpenSSH", "version": "4.4", "extrainfo": "NetBSD 20061114; protocol 2.0", "cpe": "", "os": "Apple AirPort Extreme WAP (runs NetBSD)", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 21, "protocol": "tcp", "state": "open", "service": "ftp", "product": "vsftpd or WU-FTPD", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 22, "protocol": "tcp", "state": "open", "service": "ssh", "product": "OpenSSH", "version": "4.3", "extrainfo": "protocol 2.0", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 79, "protocol": "tcp", "state": "open", "service": "finger", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "Apache httpd", "version": "2.2.2", "extrainfo": "(Fedora)", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 199, "protocol": "tcp", "state": "open", "service": "smux", "product": "Linux SNMP multiplexer", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 443, "protocol": "tcp", "state": "open", "service": "https", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 873, "protocol": "tcp", "state": "open", "service": "rsync", "product": "", "version": "", "extrainfo": "protocol version 29", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 5978, "protocol": "tcp", "state": "open", "service": "ncd-diag-tcp", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}, {"ip": "204.152.191.37", "hostname": "pub2.kernel.org", "port": 7000, "protocol": "tcp", "state": "open", "service": "afs3-fileserver", "product": "", "version": "", "extrainfo": "", "cpe": "", "os": "Linux 2.6.5 - 2.6.9", "mac": "", "vendor": ""}];</script>
+<script>
+// ── Live search ──
+function filterHosts(){
+  const q = document.getElementById('hostSearch').value.toLowerCase();
+  document.querySelectorAll('.host-card').forEach(card => {
+    card.style.display = card.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// ── Status filter ──
+function filterByStatus(status, btn){
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.host-card').forEach(card => {
+    if(status === 'all'){ card.style.display = ''; return; }
+    card.style.display = (card.dataset.status === status) ? '' : 'none';
+  });
+}
+
+// ── Toast notification ──
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── CSV Export ──
+function exportCSV(){
+  const data = window.__SCAN_DATA__ || [];
+  if(!data.length){ showToast('No data to export'); return; }
+  const headers = ['IP','Hostname','Port','Protocol','State','Service','Product','Version','Extra Info','CPE','OS','MAC','Vendor'];
+  const escape  = v => '"' + String(v).replace(/"/g,'""') + '"';
+  const rows    = data.map(r => [
+    r.ip, r.hostname, r.port, r.protocol, r.state,
+    r.service, r.product, r.version, r.extrainfo,
+    r.cpe, r.os, r.mac, r.vendor
+  ].map(escape).join(','));
+  const csv  = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'nmap_report.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ CSV exported — ' + rows.length + ' rows');
+}
+
+// ── Copy IP:PORT to clipboard ──
+function copyIPPort(){
+  const data = window.__SCAN_DATA__ || [];
+  if(!data.length){ showToast('No data to copy'); return; }
+  const lines = data.map(r => r.ip + ':' + r.port);
+  // deduplicate, preserve order
+  const unique = [...new Set(lines)];
+  navigator.clipboard.writeText(unique.join('\n')).then(() => {
+    showToast('📋 Copied ' + unique.length + ' IP:PORT entries');
+  }).catch(() => {
+    // fallback for non-HTTPS
+    const ta = document.createElement('textarea');
+    ta.value = unique.join('\n');
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('📋 Copied ' + unique.length + ' IP:PORT entries');
+  });
+}
+
+// ── Copy unique ports list to clipboard ──
+function copyPorts(elemId){
+  const el = document.getElementById(elemId);
+  if(!el || !el.textContent.trim() || el.textContent.trim() === '—'){
+    showToast('No ports to copy'); return;
+  }
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    showToast('📋 Ports copied to clipboard');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = el.textContent.trim();
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('📋 Ports copied to clipboard');
+  });
+}
+
+// ── Count-up animation ──
+document.querySelectorAll('.scn').forEach(el => {
+  const t = parseInt(el.textContent);
+  if(isNaN(t) || t < 2) return;
+  let v = 0; const step = Math.max(1, Math.ceil(t/30));
+  const id = setInterval(() => {
+    v += step;
+    if(v >= t){ el.textContent = t; clearInterval(id); } else { el.textContent = v; }
+  }, 25);
+});
+
+// ── Sidebar active link ──
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    const link = document.querySelector('.nav-host[href="#' + e.target.id + '"]');
+    if(link) link.style.borderLeftColor = e.isIntersecting ? 'var(--accent)' : 'transparent';
+  });
+}, {threshold:0.2});
+document.querySelectorAll('.host-card').forEach(c => obs.observe(c));
+</script>
+</body>
+</html>
