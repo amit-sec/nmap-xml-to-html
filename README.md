@@ -1,4 +1,4 @@
-# nmap-xml-to-html 🔍
+# Nmap xml to html generator 🔍
 
 Convert Nmap XML output into a modern, interactive HTML security report.
 
