@@ -2,7 +2,7 @@
 """
 nmap2html.py  -  Professional Nmap XML to HTML Report Generator
 ================================================================
-Coded by  : Amit Prajapati & Claude AI
+Coded by  : Amit Prajapati
 Inspired by / extends: nmap-parse (github.com/jonathonorr/nmap-parse)
 
 Enhancements:
@@ -27,22 +27,233 @@ Usage:
   python3 nmap2html.py -i scan.xml
 """
 
-import os, sys, re, copy, ipaddress, argparse, glob
+import os, sys, re, copy, json, ipaddress, argparse, glob, logging
 import xml.etree.ElementTree as ET
+from html import escape as esc
 from datetime import datetime
 from collections import defaultdict
+
+log = logging.getLogger("nmap2html")
 
 
 # =====================================================
 #  CONSTANTS
 # =====================================================
 PROTOCOLS = ["tcp", "udp"]
+SERVICE_MATRIX_LIMIT = 30
 
-RISKY_PORTS = {"21","23","69","110","111","135","137","139","445",
-               "512","513","514","1099","1433","2049","3389","4848",
-               "5900","5985","6379","8443","27017","50000"}
-INTERESTING_PORTS = {"22","25","53","80","443","3306","5432",
-                     "8080","8888","9200","9300","11211","15672"}
+# Ports that are flagged and highlighted in the HTML report.
+# Single merged set — no separate "interesting" category.
+# Logic: if it's worth a reviewer's attention for ANY reason
+# (dangerous protocol, database, remote mgmt, or uncommon exposure),
+# it belongs here. Ports that are universally expected on every
+# network (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS, 161 SNMP) are
+# excluded so the highlight stays meaningful.
+
+RISKY_PORTS = {
+    # ── Dangerous / legacy plaintext protocols ─────────────────────────
+    "13",           # Daytime — info leak, amplification
+    "19",           # Chargen — UDP amplification DDoS
+    "21",           # FTP — plaintext creds, anon login, bounce attacks
+    "23",           # Telnet — fully plaintext, no encryption
+    "39",           # Resource Location Protocol — legacy, rarely legit
+    "69",           # TFTP — unauthenticated file read/write
+    "79",           # Finger — user enumeration
+    "80",           # HTTP — plaintext web, included because prod should be HTTPS
+    "110",          # POP3 — plaintext email retrieval
+    "111",          # RPCbind/portmapper — exposes RPC services
+    "119",          # NNTP — legacy news protocol, rarely needed
+    "177",          # XDMCP — X Display remote login, plaintext
+    "512",          # rexec — plaintext remote execution
+    "513",          # rlogin — trust-based auth, trivially bypassed
+    "514",          # rsh / syslog — unauth remote shell or log injection
+    "515",          # LPD printer — remote print abuse, info leak
+    "1701",         # L2TP — VPN without IPsec = plaintext tunnel
+    "1723",         # PPTP — broken VPN protocol (MS-CHAPv2 crackable)
+
+    # ── X11 / graphical remote access ──────────────────────────────────
+    "6000",         # X11 display :0
+    "6001",         # X11 display :1
+    "6002",         # X11 display :2
+    "6003",         # X11 display :3
+    "6004",         # X11 display :4
+    "6005",         # X11 display :5
+    "6006",         # X11 display :6
+    "6007",         # X11 display :7
+    "6008",         # X11 display :8
+    "6009",         # X11 display :9
+    "6010",         # X11 display :10
+    "6011",         # X11 display :11
+    "6012",         # X11 display :12
+    "6013",         # X11 display :13
+    "6014",         # X11 display :14
+    "6015",         # X11 display :15
+    "6016",         # X11 display :16
+    "6017",         # X11 display :17
+    "6018",         # X11 display :18
+    "6019",         # X11 display :19
+    "6020",         # X11 display :20
+    "6021",         # X11 display :21
+    "6022",         # X11 display :22
+    "6023",         # X11 display :23
+    "6024",         # X11 display :24
+    "6025",         # X11 display :25
+    "6026",         # X11 display :26
+    "6027",         # X11 display :27
+    "6028",         # X11 display :28
+    "6029",         # X11 display :29
+    "6030",         # X11 display :30
+    "6031",         # X11 display :31
+    "6032",         # X11 display :32
+    "6033",         # X11 display :33
+    "6034",         # X11 display :34
+    "6035",         # X11 display :35
+    "6036",         # X11 display :36
+    "6037",         # X11 display :37
+    "6038",         # X11 display :38
+    "6039",         # X11 display :39
+    "6040",         # X11 display :40
+    "6041",         # X11 display :41
+    "6042",         # X11 display :42
+    "6043",         # X11 display :43
+    "6044",         # X11 display :44
+    "6045",         # X11 display :45
+    "6046",         # X11 display :46
+    "6047",         # X11 display :47
+    "6048",         # X11 display :48
+    "6049",         # X11 display :49
+    "6050",         # X11 display :50
+    "6051",         # X11 display :51
+    "6052",         # X11 display :52
+    "6053",         # X11 display :53
+    "6054",         # X11 display :54
+    "6055",         # X11 display :55
+    "6056",         # X11 display :56
+    "6057",         # X11 display :57
+    "6058",         # X11 display :58
+    "6059",         # X11 display :59
+    "6060",         # X11 display :60
+    "6061",         # X11 display :61
+    "6062",         # X11 display :62
+    "6063",         # X11 display :63
+
+    # ── VNC / graphical remote desktop ─────────────────────────────────
+    "5900",         # VNC display :0 — often no auth or weak password
+    "5901",         # VNC display :1
+    "5902",         # VNC display :2
+    "5903",         # VNC display :3
+    "5904",         # VNC display :4
+    "5905",         # VNC display :5
+    "5906",         # VNC display :6
+
+    # ── Windows / SMB attack surface ───────────────────────────────────
+    "135",          # MSRPC endpoint mapper — DCOM/WMI exploitation
+    "137",          # NetBIOS Name Service — enumeration, poisoning
+    "138",          # NetBIOS Datagram — enumeration
+    "139",          # NetBIOS Session / SMB — EternalBlue, pass-the-hash
+    "445",          # SMB direct — ransomware, lateral movement
+    "3389",         # RDP — brute force, BlueKeep (CVE-2019-0708)
+
+    # ── Remote management & admin interfaces ───────────────────────────
+    "623",          # IPMI/BMC — remote out-of-band management, often default creds
+    "664",          # IPMI over SSL
+    "1099",         # Java RMI — remote code execution
+    "2049",         # NFS — unauthenticated mount if misconfigured
+    "4848",         # GlassFish admin console
+    "5985",         # WinRM HTTP — remote PowerShell, lateral movement
+    "5986",         # WinRM HTTPS
+    "8080",         # HTTP alternate — dev servers, admin panels, Jenkins
+    "8443",         # HTTPS alternate — admin consoles (Tomcat, etc.)
+    "8888",         # Jupyter Notebook — unauthenticated code execution
+    "9090",         # Prometheus / Cockpit — metrics or web admin
+    "9443",         # VMware / misc admin HTTPS
+    "10000",        # Webmin — Linux web admin panel
+    "50000",        # SAP / Jenkins slave port
+
+    # ── Databases ──────────────────────────────────────────────────────
+    "1433",         # Microsoft SQL Server
+    "1434",         # MSSQL browser — UDP instance enumeration
+    "1521",         # Oracle Database
+    "1522",         # Oracle Database (alt)
+    "3306",         # MySQL / MariaDB
+    "5432",         # PostgreSQL
+    "5433",         # PostgreSQL (alt)
+    "6379",         # Redis — unauthenticated by default
+    "7474",         # Neo4j browser
+    "7687",         # Neo4j Bolt protocol
+    "8086",         # InfluxDB
+    "9042",         # Cassandra CQL
+    "9160",         # Cassandra Thrift
+    "11211",        # Memcached — unauthenticated, UDP amplification
+    "15672",        # RabbitMQ management UI
+    "27017",        # MongoDB — unauthenticated by default (older versions)
+    "27018",        # MongoDB shard
+    "27019",        # MongoDB config server
+    "28015",        # RethinkDB
+    "50070",        # Hadoop NameNode web UI
+    "50075",        # Hadoop DataNode web UI
+
+    # ── Search & analytics ─────────────────────────────────────────────
+    "9200",         # Elasticsearch HTTP — often no auth
+    "9300",         # Elasticsearch cluster transport
+    "5601",         # Kibana — exposes full ES data if ES is open
+
+    # ── Message queues & streaming ─────────────────────────────────────
+    "4369",         # Erlang port mapper (RabbitMQ/CouchDB) — cluster takeover
+    "5672",         # AMQP (RabbitMQ)
+    "9092",         # Apache Kafka
+    "2181",         # ZooKeeper — unauthenticated config/data access
+
+    # ── Containers & virtualisation ────────────────────────────────────
+    "2375",         # Docker daemon (unencrypted) — full host takeover
+    "2376",         # Docker daemon (TLS) — still worth reviewing
+    "2377",         # Docker Swarm
+    "4243",         # Docker alt
+    "8500",         # Consul HTTP — service mesh config, key/value store
+    "8501",         # Consul HTTPS
+
+    # ── C2 / reverse shell / malware indicators ────────────────────────
+    "4444",         # Metasploit default listener
+    "4445",         # Metasploit alt
+    "5554",         # Metasploit / Sasser worm
+    "6667",         # IRC — classic C2 channel, botnets
+    "6668",         # IRC alt
+    "6669",         # IRC alt
+    "9001",         # Tor relay / misc backdoors
+    "31337",        # Elite/Back Orifice — legacy RAT
+
+    # ── Industrial / SCADA ─────────────────────────────────────────────
+    "102",          # Siemens S7 (ISO-TSAP) — ICS/SCADA
+    "502",          # Modbus — ICS protocol, no auth
+    "503",          # Modbus alt
+    "789",          # Moxa NPort — serial device server
+    "4840",         # OPC-UA — industrial automation
+    "20000",        # DNP3 — SCADA protocol
+    "44818",        # EtherNet/IP — Rockwell/Allen-Bradley PLCs
+
+    # ── Miscellaneous high-risk ────────────────────────────────────────
+    "7",            # Echo — amplification / reconnaissance
+    "17",           # Quote of the Day — amplification
+    "25",           # SMTP — open relay check, phishing infrastructure
+    "53",           # DNS — open resolver = DDoS amplification (UDP)
+    "88",           # Kerberos — ticket attacks if exposed externally
+    "389",          # LDAP — directory enumeration, injection
+    "636",          # LDAPS — still worth reviewing
+    "593",          # HTTP RPC — DCOM over HTTP
+    "3128",         # Squid proxy — open proxy abuse
+    "3268",         # LDAP Global Catalog
+    "3269",         # LDAP Global Catalog SSL
+    "8009",         # Apache AJP — Ghostcat (CVE-2020-1938)
+}
+
+# Port range helper — used to generate X11 / VNC ranges above dynamically
+# (ranges already expanded into the set; this is for documentation only)
+_RISKY_PORT_RANGES = {
+    "5900-5906": "VNC displays :0–:6",
+    "6000-6063": "X11 displays :0–:63",
+}
+
+INTERESTING_PORTS = set()   # Merged into RISKY_PORTS — no longer used separately
 
 
 # =====================================================
@@ -90,7 +301,7 @@ class NmapHost:
         self.host_scripts  = []
         self.start_ts      = ""
         self.end_ts        = ""
-        self.filesWithHost = []
+        self.filesWithHost = set()
         self.matched       = True
 
     def getState(self):
@@ -151,8 +362,8 @@ class NmapFilters:
     def serviceFilterSet(self): return bool(self.services)
     def hostFilterSet(self):    return bool(self.hosts)
     def areFiltersSet(self):
-        return any([self.hostFilterSet(), self.portFilterSet(),
-                    self.serviceFilterSet(), self.mustHavePorts, self.onlyAlive])
+        return any((self.hostFilterSet(), self.portFilterSet(),
+                    self.serviceFilterSet(), self.mustHavePorts, self.onlyAlive))
 
     def checkHost(self, ip):
         if not self.hostFilterSet():
@@ -179,9 +390,13 @@ class NmapOutput:
         self.FilesImported       = []
         self.FilesFailedToImport = []
         self.Hosts               = {}
-        self.Services            = []
+        self._services_map       = {}   # name -> NmapService  (O(1) lookup)
         self.ScanMeta            = []
         self._parse_files(xml_files)
+
+    @property
+    def Services(self):
+        return list(self._services_map.values())
 
     @staticmethod
     def find_xml_files(path, recurse=False):
@@ -203,11 +418,23 @@ class NmapOutput:
             fpath = os.path.abspath(os.path.expanduser(fpath))
             if fpath in self.FilesImported:
                 continue
-            print(f"  [{i+1}/{len(xml_files)}] {fpath}")
+            log.info("  [%d/%d] %s", i + 1, len(xml_files), fpath)
             try:
-                tree = ET.parse(fpath)
+                # Read raw bytes first so we can strip the DOCTYPE declaration
+                # that Nmap injects — it references a remote DTD and causes
+                # XMLParser to choke on Python 3.8+ builds that removed the
+                # internal `.parser` shim used by expat's reset() path.
+                with open(fpath, "rb") as raw:
+                    data = raw.read()
+                # Remove DOCTYPE line(s) which reference nmap.dtd and trigger
+                # the 'XMLParser has no attribute parser' error on some builds.
+                import re as _re
+                data = _re.sub(rb'<!DOCTYPE[^>]*(?:>|\[.*?\]>)', b'', data,
+                               flags=_re.DOTALL)
+                root_el = ET.fromstring(data)
+                tree = ET.ElementTree(root_el)
             except Exception as e:
-                print(f"  [WARN] Failed to parse: {e}", file=sys.stderr)
+                log.warning("Failed to parse %s: %s", fpath, e)
                 self.FilesFailedToImport.append(fpath)
                 continue
             self.FilesImported.append(fpath)
@@ -257,7 +484,7 @@ class NmapOutput:
         host = self.Hosts[ip]
 
         if source_file not in host.filesWithHost:
-            host.filesWithHost.append(source_file)
+            host.filesWithHost.add(source_file)
 
         status_el = host_el.find("status")
         if status_el is not None:
@@ -330,10 +557,9 @@ class NmapOutput:
                 self._add_service(svc_name, ip, int(port_el.get("portid","0")))
 
     def _add_service(self, name, ip, port_id):
-        svc = next((s for s in self.Services if s.name == name), None)
-        if svc is None:
-            svc = NmapService(name)
-            self.Services.append(svc)
+        if name not in self._services_map:
+            self._services_map[name] = NmapService(name)
+        svc = self._services_map[name]
         if ip not in svc.hosts:
             svc.hosts.append(ip)
         if port_id not in svc.ports:
@@ -388,11 +614,12 @@ class NmapOutput:
         return sorted(all_ids)
 
     def _sorted_ips(self):
-        try:
-            return sorted(self.Hosts.keys(),
-                          key=lambda ip: [int(x) for x in ip.split(".")])
-        except Exception:
-            return sorted(self.Hosts.keys())
+        def sort_key(ip):
+            try:
+                return (0, ipaddress.ip_address(ip))
+            except ValueError:
+                return (1, ip)
+        return sorted(self.Hosts.keys(), key=sort_key)
 
 
 # =====================================================
@@ -434,9 +661,9 @@ def compute_stats(nmap_out, filters):
 # =====================================================
 
 def esc(text):
-    return (str(text)
-            .replace("&","&amp;").replace("<","&lt;")
-            .replace(">","&gt;").replace('"',"&quot;"))
+    """html.escape wrapper that accepts any type."""
+    from html import escape
+    return escape(str(text) if text is not None else "")
 
 def state_badge(state):
     cls_map = {"open":"open-badge","closed":"closed-badge","filtered":"filtered-badge"}
@@ -448,15 +675,12 @@ def host_badge(status):
     return f'<span class="hbadge {cls}">{status.upper()}</span>'
 
 def row_class(port_id):
-    s = str(port_id)
-    if s in RISKY_PORTS:       return "row-risky"
-    if s in INTERESTING_PORTS: return "row-interesting"
-    return ""
+    return ""  # Risky port highlighting moved to the Risky Findings summary panel
 
 def bar_chart(items, css_extra=""):
     if not items:
         return '<p class="dim" style="font-size:12px">No data</p>'
-    max_val = items[0][1] if items else 1
+    max_val = items[0][1]
     html = ""
     for label, cnt in items:
         pct = int(cnt / max_val * 100)
@@ -489,8 +713,13 @@ def render_host_card(host, idx):
     for p in sorted(host.ports, key=lambda p: (p.state != "open", p.protocol, p.portId)):
         sc_html = ""
         for sc in p.scripts:
+            raw = sc["output"]
+            truncated = len(raw) > 400
+            display = raw[:400]
             sc_html += (f'<div class="sc-wrap"><span class="sc-id">{esc(sc["id"])}</span>'
-                        f'<pre class="sc-out">{esc(sc["output"][:400])}</pre></div>')
+                        f'<pre class="sc-out">{esc(display)}'
+                        f'{"<span class=trunc-note>… [truncated — see Raw Scan Data]</span>" if truncated else ""}'
+                        f'</pre></div>')
         port_rows += (
             f'<tr class="{row_class(p.portId)}">'
             f'<td><strong>{p.portId}</strong></td>'
@@ -504,8 +733,13 @@ def render_host_card(host, idx):
 
     hsc_html = ""
     for sc in host.host_scripts:
+        raw = sc["output"]
+        truncated = len(raw) > 600
+        display = raw[:600]
         hsc_html += (f'<div class="sc-wrap"><span class="sc-id">{esc(sc["id"])}</span>'
-                     f'<pre class="sc-out">{esc(sc["output"][:600])}</pre></div>')
+                     f'<pre class="sc-out">{esc(display)}'
+                     f'{"<span class=trunc-note>… [truncated — see Raw Scan Data]</span>" if truncated else ""}'
+                     f'</pre></div>')
 
     # Meta row parts
     os_html   = (f'<div class="mi"><span class="ml">OS</span>{esc(host.os_name)}'
@@ -559,7 +793,7 @@ def render_host_card(host, idx):
 
 def render_service_matrix(nmap_out, filters):
     services = sorted(nmap_out.getServices(filters),
-                      key=lambda s: (-len(s.hosts), s.name))[:30]
+                      key=lambda s: (-len(s.hosts), s.name))[:SERVICE_MATRIX_LIMIT]
     if not services:
         return ""
     rows = ""
@@ -570,7 +804,7 @@ def render_service_matrix(nmap_out, filters):
                  f'<td><span class="cnt open-cnt">{len(svc.hosts)}</span></td>'
                  f'<td class="svc-hosts">{host_tags}</td></tr>')
     return (f'<div class="section-card"><h3 class="sec-title">🔧 Service Matrix'
-            f' <span class="dim">(top 30)</span></h3>'
+            f' <span class="dim">(top {SERVICE_MATRIX_LIMIT})</span></h3>'
             f'<div class="tbl-wrap"><table class="ptbl">'
             f'<thead><tr><th>Service</th><th>Ports</th><th>Hosts</th><th>IPs Exposed</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div></div>')
@@ -737,8 +971,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .ptbl td{padding:8px 13px;border-bottom:1px solid rgba(48,54,61,.5);vertical-align:top}
 .ptbl tr:last-child td{border-bottom:none}
 .ptbl tr:hover td{background:rgba(88,166,255,.04)}
-.ptbl tr.row-risky td{background:rgba(248,81,73,.04)}
-.ptbl tr.row-interesting td{background:rgba(63,185,80,.03)}
 .cpe-cell,.mono{font-family:monospace;font-size:11px;color:var(--dim)}
 .nodata{text-align:center;color:var(--dim);padding:18px;font-style:italic}
 /* Badges */
@@ -796,6 +1028,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+/* Truncation note */
+.trunc-note{display:block;color:var(--orange);font-size:10px;font-style:italic;margin-top:3px}
+/* Risky findings panel */
+.risky-panel{border-color:rgba(248,81,73,.4)!important}
+.risky-panel .sec-title{color:var(--red)}
+.risky-counts{display:inline-flex;gap:6px;margin-left:12px;vertical-align:middle}
+.risky-clean{display:flex;align-items:center;gap:10px;padding:16px 22px;
+             background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.3);
+             border-radius:var(--radius);margin-bottom:22px;color:var(--green);font-size:13px}
+.risky-clean-icon{font-size:20px}
+.sev-badge{display:inline-block;padding:2px 8px;border-radius:10px;
+           font-size:11px;font-weight:700;letter-spacing:.4px}
+.sev-critical{background:rgba(188,0,0,.25);color:#ff6b6b;border:1px solid rgba(255,80,80,.4)}
+.sev-high    {background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)}
+.sev-medium  {background:rgba(210,153,34,.15);color:var(--orange);border:1px solid rgba(210,153,34,.3)}
+.rf-ip{display:inline-block;background:rgba(248,81,73,.08);color:var(--red);
+       border:1px solid rgba(248,81,73,.2);border-radius:4px;
+       padding:1px 7px;font-size:11px;font-family:monospace;margin:2px;
+       text-decoration:none;transition:.15s}
+.rf-ip:hover{background:rgba(248,81,73,.2)}
+.rf-hn{color:var(--dim);font-family:sans-serif}
+.rf-hosts-cell{max-width:420px}
+.rf-count{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+          padding:1px 8px;font-size:11px;color:var(--text)}
+/* Raw scan data */
+.raw-host{border-bottom:1px solid var(--border)}
+.raw-host:last-child{border-bottom:none}
+.raw-summary{padding:11px 22px;cursor:pointer;display:flex;align-items:center;gap:10px;
+             font-size:13px;list-style:none;user-select:none}
+.raw-summary::-webkit-details-marker{display:none}
+.raw-summary:hover{background:var(--bg3)}
+.raw-ip{font-family:monospace;font-weight:700;color:var(--accent)}
+.raw-count{margin-left:auto;font-size:11px;color:var(--dim);background:var(--bg3);
+           border-radius:10px;padding:1px 8px}
+.raw-ctx{color:var(--purple);min-width:110px}
+.raw-out{max-height:none;white-space:pre-wrap;word-break:break-all}
+.raw-tbl td{vertical-align:top}
 """
 
 JS = """
@@ -906,12 +1175,19 @@ const obs = new IntersectionObserver(entries => {
   });
 }, {threshold:0.2});
 document.querySelectorAll('.host-card').forEach(c => obs.observe(c));
+
+// ── Raw scan data expand/collapse ──
+function expandAllRaw(){
+  document.querySelectorAll('.raw-host').forEach(d => d.open = true);
+}
+function collapseAllRaw(){
+  document.querySelectorAll('.raw-host').forEach(d => d.open = false);
+}
 """
 
 
 def build_export_json(nmap_out, filters):
     """Build a JS-safe JSON array of all open ports for CSV export."""
-    import json
     rows = []
     for host in nmap_out.getHosts(filters):
         for p in host.ports:
@@ -935,6 +1211,158 @@ def build_export_json(nmap_out, filters):
     return json.dumps(rows, ensure_ascii=False)
 
 
+def render_raw_scan_data(nmap_out):
+    """Render a collapsible section showing the complete raw script output for every host."""
+    hosts_html = ""
+    for ip, host in nmap_out.Hosts.items():
+        # Collect all scripts: host-level + per-port
+        entries = []
+        for sc in host.host_scripts:
+            entries.append(("host-script", sc["id"], sc["output"]))
+        for p in host.ports:
+            for sc in p.scripts:
+                entries.append((f"{p.portId}/{p.protocol}", sc["id"], sc["output"]))
+        if not entries:
+            continue
+        rows = ""
+        for context, sc_id, output in entries:
+            rows += (f'<tr>'
+                     f'<td class="mono raw-ctx">{esc(context)}</td>'
+                     f'<td><span class="sc-id">{esc(sc_id)}</span></td>'
+                     f'<td><pre class="sc-out raw-out">{esc(output)}</pre></td>'
+                     f'</tr>')
+        hn = host.getHostname()
+        label = f"{ip}" + (f" ({hn})" if hn else "")
+        hosts_html += f"""
+<details class="raw-host">
+  <summary class="raw-summary">
+    <span class="raw-ip">{esc(ip)}</span>
+    {"<span class='hn'>" + esc(hn) + "</span>" if hn else ""}
+    <span class="raw-count">{len(entries)} script result{"s" if len(entries) != 1 else ""}</span>
+  </summary>
+  <div class="tbl-wrap">
+    <table class="ptbl raw-tbl">
+      <thead><tr><th>Context</th><th>Script ID</th><th>Output</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>
+  </div>
+</details>"""
+
+    if not hosts_html:
+        return ""
+
+    return f"""
+<div class="section-card" id="raw-scan-data">
+  <h3 class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+    🗂️ Raw Scan Data
+    <span class="dim" style="font-size:11px;font-weight:400">Full untruncated script output per host</span>
+  </h3>
+  <div style="padding:0 22px 14px">
+    <button class="ebtn" onclick="expandAllRaw()" style="margin-right:8px">⊞ Expand All</button>
+    <button class="ebtn" onclick="collapseAllRaw()">⊟ Collapse All</button>
+  </div>
+  {hosts_html}
+</div>"""
+
+
+def render_risky_findings(hosts):
+    """
+    Build a summary table of every open risky port across all hosts,
+    grouped by port — shown once before the individual host cards.
+    """
+    # Collect: port_id -> { service, product, [(ip, hostname)] }
+    findings = {}
+    for host in hosts:
+        for p in host.ports:
+            if p.state != "open":
+                continue
+            if str(p.portId) not in RISKY_PORTS:
+                continue
+            key = (p.portId, p.protocol)
+            if key not in findings:
+                findings[key] = {
+                    "service": p.service or "unknown",
+                    "version": p.version_string,
+                    "hosts":   []
+                }
+            hn = host.getHostname()
+            findings[key]["hosts"].append((host.ip, hn))
+
+    if not findings:
+        return (
+            '<div class="risky-panel risky-clean">'
+            '<span class="risky-clean-icon">✅</span>'
+            '<span>No risky ports detected across all hosts</span>'
+            '</div>'
+        )
+
+    # Severity label per port
+    C2_PORTS     = {"4444","4445","5554","6667","6668","6669","9001","31337"}
+    CRITICAL_SVC = {"3389","5900","5901","5902","5903","5904","5905","5906",
+                    "23","21","512","513","514","445","139","2375","8888"}
+
+    def severity(port_id):
+        s = str(port_id)
+        if s in C2_PORTS:      return ("CRITICAL", "sev-critical")
+        if s in CRITICAL_SVC:  return ("HIGH",     "sev-high")
+        return                         ("MEDIUM",   "sev-medium")
+
+    rows = ""
+    for (port_id, proto), info in sorted(findings.items()):
+        sev_label, sev_cls = severity(port_id)
+        host_tags = "".join(
+            f'<a href="#host-{i}" class="rf-ip" title="{esc(hn)}">'
+            f'{esc(ip)}'
+            f'{"<span class=rf-hn> ("+esc(hn)+")</span>" if hn else ""}'
+            f'</a>'
+            for i, (ip, hn) in enumerate(info["hosts"])
+        )
+        rows += (
+            f'<tr>'
+            f'<td><strong class="mono">{port_id}</strong></td>'
+            f'<td class="mono dim">{esc(proto.upper())}</td>'
+            f'<td>{esc(info["service"])}</td>'
+            f'<td class="dim" style="font-size:11px">{esc(info["version"])}</td>'
+            f'<td><span class="sev-badge {sev_cls}">{sev_label}</span></td>'
+            f'<td><span class="rf-count">{len(info["hosts"])}</span></td>'
+            f'<td class="rf-hosts-cell">{host_tags}</td>'
+            f'</tr>'
+        )
+
+    total_findings = sum(len(v["hosts"]) for v in findings.values())
+
+    return f"""
+<div class="section-card risky-panel" id="risky-findings">
+  <h3 class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span>⚠️ Risky Ports Detected
+      <span class="risky-counts">
+        <span class="sev-badge sev-critical" style="font-size:10px">
+          {sum(1 for (pid,_) in findings if str(pid) in C2_PORTS)} CRITICAL
+        </span>
+        <span class="sev-badge sev-high" style="font-size:10px">
+          {sum(1 for (pid,_) in findings if str(pid) not in C2_PORTS and str(pid) in {"3389","5900","5901","5902","5903","5904","5905","5906","23","21","512","513","514","445","139","2375","8888"})} HIGH
+        </span>
+        <span class="sev-badge sev-medium" style="font-size:10px">
+          {sum(1 for (pid,_) in findings if str(pid) not in C2_PORTS and str(pid) not in {"3389","5900","5901","5902","5903","5904","5905","5906","23","21","512","513","514","445","139","2375","8888"})} MEDIUM
+        </span>
+      </span>
+    </span>
+    <span class="dim" style="font-size:11px;font-weight:400">{len(findings)} unique port(s) &bull; {total_findings} total exposure(s)</span>
+  </h3>
+  <div class="tbl-wrap">
+    <table class="ptbl">
+      <thead>
+        <tr>
+          <th>Port</th><th>Proto</th><th>Service</th>
+          <th>Version</th><th>Severity</th><th>Hosts</th><th>IPs Affected</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+  </div>
+</div>"""
+
+
 def generate_html(nmap_out, stats, filters, source_label):
     now   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     hosts = nmap_out.getHosts(filters)
@@ -942,6 +1370,9 @@ def generate_html(nmap_out, stats, filters, source_label):
 
     # Build export JSON (injected into HTML as a JS variable)
     export_json = build_export_json(nmap_out, filters)
+
+    # Raw scan data section
+    raw_section = render_raw_scan_data(nmap_out)
 
     # Sidebar nav
     nav = ""
@@ -955,13 +1386,16 @@ def generate_html(nmap_out, stats, filters, source_label):
 
     cards = "\n".join(render_host_card(h, i) for i, h in enumerate(hosts))
 
+    # Risky findings summary section
+    risky_section = render_risky_findings(hosts)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Nmap Report — {esc(source_label)}</title>
-<!-- Coded by Amit Prajapati & Claude AI -->
+<!-- Coded by Amit Prajapati -->
 <style>{CSS}</style>
 </head>
 <body>
@@ -969,10 +1403,13 @@ def generate_html(nmap_out, stats, filters, source_label):
 
 <aside class="sidebar">
   <div class="slogo">🔍 Nmap Report<small>Generated {now}</small>
-    <div class="credit">by <strong>Amit Prajapati</strong> &amp; Claude AI</div>
+    <div class="credit">by <strong>Amit Prajapati</strong></div>
   </div>
   <div class="ssec">Hosts ({len(hosts)})</div>
   {nav or '<div style="padding:12px 16px;color:var(--dim);font-size:12px">No hosts</div>'}
+  <div class="ssec" style="margin-top:8px">Quick Links</div>
+  <a href="#risky-findings" class="nav-host" style="color:var(--red)">⚠️ Risky Findings</a>
+  <a href="#raw-scan-data" class="nav-host" style="color:var(--purple)">🗂️ Raw Scan Data</a>
 </aside>
 
 <main class="main">
@@ -1016,8 +1453,10 @@ def generate_html(nmap_out, stats, filters, source_label):
 </div>
 
 {render_scan_info(nmap_out)}
+{risky_section}
 {render_unique_ports(stats)}
 {render_service_matrix(nmap_out, filters)}
+{raw_section}
 
 <h2 style="font-size:17px;font-weight:700;margin:22px 0 12px;color:var(--text);
             border-bottom:1px solid var(--border);padding-bottom:8px">🖥️ Host Details</h2>
@@ -1031,18 +1470,13 @@ def generate_html(nmap_out, stats, filters, source_label):
   <button class="fbtn"        onclick="filterByStatus('down',this)">Down</button>
 </div>
 
-<div class="legend">
-  <span class="li"><span class="ld ld-r"></span>High-risk port</span>
-  <span class="li"><span class="ld ld-i"></span>Common port</span>
-</div>
-
 <div id="host-container">
   {cards or '<p class="dim" style="padding:20px">No hosts matched current filters.</p>'}
 </div>
 
 <div class="footer">
   Generated by <strong>nmap2html.py</strong> &bull;
-  Coded by <strong>Amit Prajapati &amp; Claude AI</strong> &bull;
+  Coded by <strong>Amit Prajapati</strong> &bull;
   {now} &bull; Nmap {esc(m.get("version",""))} &bull;
   {esc(m.get("summary",""))}
 </div>
@@ -1074,16 +1508,22 @@ def collect_xml_files(inputs, recurse):
             elif os.path.isfile(t):
                 files.append(t)
             else:
-                print(f"[WARN] Not found: {t}", file=sys.stderr)
+                log.warning("[WARN] Not found: %s", t)
     seen, result = set(), []
     for f in files:
         af = os.path.abspath(f)
         if af not in seen:
-            seen.add(af); result.append(af)
+            seen.add(af)
+            result.append(af)
     return result
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        stream=sys.stdout,
+    )
     p = argparse.ArgumentParser(
         prog="nmap2html",
         description="Nmap XML to Beautiful HTML Report  (zero pip deps, Python 3.9+)",
@@ -1096,6 +1536,7 @@ Examples:
   python3 nmap2html.py -i scan.xml --service ssh,http
         """
     )
+    p.add_argument("--version", action="version", version="%(prog)s 2.0  — Coded by Amit Prajapati")
     p.add_argument("inputs", nargs="*",
                    help="Nmap XML file(s) or directory")
     p.add_argument("-i","--input", dest="input_flag", metavar="FILE/DIR",
@@ -1124,7 +1565,8 @@ Examples:
 
     xml_files = collect_xml_files(raw_inputs, args.recurse)
     if not xml_files:
-        print("[ERROR] No Nmap XML files found.", file=sys.stderr); sys.exit(1)
+        log.error("[ERROR] No Nmap XML files found.")
+        sys.exit(1)
 
     filters = NmapFilters(default=False)
     if args.ports:
@@ -1140,14 +1582,15 @@ Examples:
 
     out_file = args.output or (os.path.splitext(xml_files[0])[0] + ".html")
 
-    print(f"[*] Found {len(xml_files)} XML file(s)")
+    log.info("[*] Found %d XML file(s)", len(xml_files))
     nmap_out = NmapOutput(xml_files)
-    print(f"[*] Loaded {len(nmap_out.FilesImported)} file(s) | "
-          f"{len(nmap_out.Hosts)} host(s) | {len(nmap_out.Services)} service(s)")
+    log.info("[*] Loaded %d file(s) | %d host(s) | %d service(s)",
+             len(nmap_out.FilesImported), len(nmap_out.Hosts), len(nmap_out.Services))
 
     stats = compute_stats(nmap_out, filters)
-    print(f"[*] Open: {stats['total_open']} | Filtered: {stats['total_filtered']} | "
-          f"Up: {stats['hosts_up']} | Down: {stats['hosts_down']}")
+    log.info("[*] Open: %d | Filtered: %d | Up: %d | Down: %d",
+             stats['total_open'], stats['total_filtered'],
+             stats['hosts_up'], stats['hosts_down'])
 
     source_label = (", ".join(os.path.basename(f) for f in xml_files[:3])
                     + ("..." if len(xml_files) > 3 else ""))
@@ -1156,7 +1599,7 @@ Examples:
     with open(out_file, "w", encoding="utf-8") as fh:
         fh.write(html)
 
-    print(f"[OK] Report saved -> {out_file}")
+    log.info("[OK] Report saved -> %s", out_file)
 
 
 if __name__ == "__main__":
